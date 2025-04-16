@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金属风格俯卧撑检测 - 动态教练</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="metal-border top"></div>
+        <div class="metal-border bottom"></div>
+        <div class="metal-border left"></div>
+        <div class="metal-border right"></div>
+        
+        <h1>金属风格俯卧撑检测系统</h1>
+        
+        <div class="instructions">
+            <h3>使用说明：</h3>
+            <ol>
+                <li>点击"开始检测"按钮允许摄像头访问</li>
+                <li>确保全身在摄像头画面中可见</li>
+                <li>保持标准俯卧撑姿势：身体成一条直线</li>
+                <li>下压时肘部弯曲小于90度，上升时伸直</li>
+                <li>系统会实时反馈您的动作质量</li>
+            </ol>
+        </div>
+        
+        <div class="video-container">
+            <video id="output" autoplay playsinline></video>
+        </div>
+        
+        <div class="button-group">
+            <button id="startButton">开始检测</button>
+            <button id="resetButton">重置计数</button>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">计数<br><span id="count">0</span></div>
+            <div class="stat-box">肘部角度<br><span id="angle">0</span>°</div>
+            <div class="stat-box">状态<br><span id="status">等待开始</span></div>
+        </div>
+        
+        <div class="feedback" id="feedback"></div>
+        
+        <div class="dog-container">
+            <canvas id="dogCanvas" width="200" height="200"></canvas>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

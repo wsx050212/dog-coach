@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>狗狗教练 - DeepSeek版</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(100, 100, 100, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(100, 100, 100, 0.1) 0%, transparent 20%);
+            text-align: center;
+            overflow-x: hidden;
+            cursor: default;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            background: 
+                linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 
+                0 0 15px rgba(0, 150, 255, 0.3),
+                0 0 30px rgba(0, 150, 255, 0.1),
+                inset 0 0 10px rgba(255, 255, 255, 0.05);
+            border: 1px solid #333;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0, 150, 255, 0.5), transparent);
+        }
+        
+        h1 {
+            color: #4db8ff;
+            text-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+            position: relative;
+            display: inline-block;
+        }
+        
+        h1::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #4db8ff, transparent);
+        }
+        
+        .video-container {
+            position: relative;
+            margin: 20px auto;
+            width: 640px;
+            height: 480px;
+            border: 3px solid #333;
+            border-radius: 5px;
+            box-shadow: 
+                0 0 20px rgba(0, 0, 0, 0.5),
+                inset 0 0 15px rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #output {
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            object-fit: cover;
+        }
+        
+        #videoInput {
+            display: none;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 25px 0;
+            font-size: 18px;
+        }
+        
+        .stat-box {
+            background: linear-gradient(145deg, #2a2a2a, #1e1e1e);
+            padding: 15px 25px;
+            border-radius: 5px;
+            min-width: 120px;
+            box-shadow: 
+                0 3px 6px rgba(0, 0, 0, 0.3),
+                inset 0 0 5px rgba(255, 255, 255, 0.05);
+            border: 1px solid #333;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-box::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                135deg,
+                rgba(255, 255, 255, 0.1) 0%,
+                rgba(255, 255, 255, 0) 50%,
+                rgba(255, 255, 255, 0.1) 100%
+            );
+            pointer-events: none;
+        }
+        
+        .stat-box span {
+            color: #4db8ff;
+            font-weight: bold;
+            font-size: 24px;
+            display: block;
+            margin-top: 5px;
+        }
+        
+        .feedback {
+            margin: 25px 0;
+            padding: 15px;
+            background: rgba(0, 30, 60, 0.3);
+            border-radius: 5px;
+            font-size: 18px;
+            min-height: 27px;
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            box-shadow: inset 0 0 10px rgba(0, 150, 255, 0.2);
+            position: relative;
+        }
+        
+        .feedback::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 150, 255, 0.5), transparent);
+        }
+        
+        .dog-container {
+            margin: 25px auto;
+            width: 220px;
+            height: 220px;
+            position: relative;
+            background: linear-gradient(145deg, #2a2a2a, #1e1e1e);
+            border-radius: 5px;
+            box-shadow: 
+                0 3px 10px rgba(0, 0, 0, 0.5),
+                inset 0 0 5px rgba(255, 255, 255, 0.1);
+            border: 1px solid #333;
+            padding: 10px;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .dog-container:hover {
+            transform: scale(1.05);
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #f5f5dc;
+            border-radius: 5px;
+        }
+        
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            background: linear-gradient(145deg, #2a2a2a, #333);
+            color: #e0e0e0;
+            border: none;
+            padding: 12px 25px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 
+                0 3px 6px rgba(0, 0, 0, 0.3),
+                inset 0 0 5px rgba(255, 255, 255, 0.1);
+            border: 1px solid #444;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            background: linear-gradient(145deg, #333, #2a2a2a);
+            box-shadow: 
+                0 0 10px rgba(0, 150, 255, 0.5),
+                inset 0 0 5px rgba(255, 255, 255, 0.2);
+            color: #4db8ff;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(0, 150, 255, 0.2),
+                transparent
+            );
+            transition: all 0.5s;
+        }
+        
+        button:hover::before {
+            left: 100%;
+        }
+        
+        .instructions {
+            text-align: left;
+            margin: 25px 0;
+            padding: 20px;
+            background: rgba(0, 30, 60, 0.2);
+            border-radius: 5px;
+            border: 1px solid rgba(0, 150, 255, 0.2);
+            box-shadow: inset 0 0 10px rgba(0, 150, 255, 0.1);
+            position: relative;
+        }
+        
+        .instructions h3 {
+            color: #4db8ff;
+            margin-top: 0;
+            border-bottom: 1px solid rgba(0, 150, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        
+        .exercise-selector {
+            margin: 15px 0;
+        }
+        
+        .exercise-selector select {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+        }
+        
+        .deepseek-section {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(0, 60, 120, 0.2);
+            border-radius: 5px;
+            border: 1px solid rgba(0, 150, 255, 0.3);
+        }
+        
+        .api-key-input {
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #444;
+            padding: 8px 15px;
+            border-radius: 5px;
+            width: 300px;
+            margin: 5px 0;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .deepseek-status {
+            color: #4db8ff;
+            font-size: 14px;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+        
+        .analysis-report {
+            margin: 25px 0;
+            padding: 20px;
+            background: rgba(30, 60, 90, 0.3);
+            border-radius: 5px;
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            text-align: left;
+            display: none;
+        }
+        
+        .analysis-report h3 {
+            color: #4db8ff;
+            margin-top: 0;
+            border-bottom: 1px solid rgba(0, 150, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .analysis-report p {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        
+        .analysis-report ul {
+            padding-left: 20px;
+        }
+        
+        .analysis-report li {
+            margin-bottom: 8px;
+        }
+        
+        /* 金属边框效果 */
+        .metal-border {
+            position: absolute;
+            pointer-events: none;
+        }
+        
+        .metal-border.top {
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.bottom {
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.left {
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(0deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.right {
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(0deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .video-container {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 4/3;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .stat-box {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            .api-key-input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="metal-border top"></div>
+        <div class="metal-border bottom"></div>
+        <div class="metal-border left"></div>
+        <div class="metal-border right"></div>
+        
+        <h1>狗狗教练 - DeepSeek版</h1>
+        
+        <div class="deepseek-section">
+            <h3>DeepSeek 智能功能</h3>
+            <input type="text" id="deepseekApiKey" class="api-key-input" 
+                   placeholder="输入DeepSeek API密钥（可选）">
+            <div id="deepseekStatus" class="deepseek-status">未提供API密钥，将使用基础反馈</div>
+        </div>
+        
+        <div class="exercise-selector">
+            <select id="exerciseType">
+                <option value="pushup">俯卧撑</option>
+                <option value="situp">仰卧起坐</option>
+                <option value="squat">深蹲</option>
+            </select>
+        </div>
+        
+        <div class="instructions">
+            <h3>使用说明：</h3>
+            <ol id="instructionsList">
+                <li>点击"开始检测"按钮允许摄像头访问</li>
+                <li>确保全身在摄像头画面中可见</li>
+                <li>保持标准俯卧撑姿势：身体成一条直线</li>
+                <li>下压时肘部弯曲小于90度，上升时伸直</li>
+                <li>系统会实时反馈您的动作质量</li>
+                <li>也可以上传视频进行离线分析</li>
+            </ol>
+        </div>
+        
+        <div class="video-container">
+            <video id="output" autoplay playsinline></video>
+            <video id="videoInput" autoplay playsinline></video>
+        </div>
+        
+        <div class="button-group">
+            <button id="startButton">开始检测</button>
+            <button id="uploadButton">上传视频分析</button>
+            <button id="resetButton">重置计数</button>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">计数<br><span id="count">0</span></div>
+            <div class="stat-box">角度<br><span id="angle">0</span>°</div>
+            <div class="stat-box">状态<br><span id="status">等待开始</span></div>
+        </div>
+        
+        <div class="feedback" id="feedback"></div>
+        
+        <div class="dog-container">
+            <canvas id="dogCanvas" width="200" height="200"></canvas>
+        </div>
+        
+        <div class="analysis-report" id="analysisReport">
+            <h3>视频分析报告</h3>
+            <div id="reportContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 配置部分 ====================
+        const DEEPSEEK_CHAT_MODEL = "deepseek-chat";
+        const DEEPSEEK_VISION_MODEL = "deepseek-vision";
+        const DEFAULT_ENCOURAGEMENTS = [
+            "太棒了！继续坚持！",
+            "完美的动作！",
+            "你已经完成%count%次了！",
+            "继续保持这个节奏！",
+            "做得很标准！"
+        ];
+        
+        // ==================== 初始化变量 ====================
+        let pushUpCount = 0;
+        let sitUpCount = 0;
+        let squatCount = 0;
+        let isDownPosition = false;
+        let isUpPosition = false;
+        let lastUpTime = Date.now();
+        let feedbackMessage = "";
+        let feedbackTime = 0;
+        let lastActivityTime = Date.now();
+        let inactivityMessageShown = false;
+        let dogState = "normal";
+        let frameCount = 0;
+        let lastUpdate = Date.now();
+        let voiceLock = false;
+        let lastAngle = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+        let isMouseOverDog = false;
+        let isDogClicked = false;
+        let isDogDragged = false;
+        let currentExercise = "pushup";
+        let deepseekApiKey = "";
+        let isAnalyzingVideo = false;
+        let videoAnalysisData = {
+            count: 0,
+            averageSpeed: 0,
+            quality: [],
+            issues: []
+        };
+
+        // 语音合成
+        const synth = window.speechSynthesis;
+        let voice = null;
+
+        // 获取DOM元素
+        const videoElement = document.getElementById('output');
+        const videoInputElement = document.getElementById('videoInput');
+        const startButton = document.getElementById('startButton');
+        const uploadButton = document.getElementById('uploadButton');
+        const resetButton = document.getElementById('resetButton');
+        const countElement = document.getElementById('count');
+        const angleElement = document.getElementById('angle');
+        const statusElement = document.getElementById('status');
+        const feedbackElement = document.getElementById('feedback');
+        const dogCanvas = document.getElementById('dogCanvas');
+        const dogCtx = dogCanvas.getContext('2d');
+        const exerciseType = document.getElementById('exerciseType');
+        const instructionsList = document.getElementById('instructionsList');
+        const deepseekKeyInput = document.getElementById('deepseekApiKey');
+        const deepseekStatus = document.getElementById('deepseekStatus');
+        const analysisReport = document.getElementById('analysisReport');
+        const reportContent = document.getElementById('reportContent');
+        
+        // ==================== DeepSeek API 交互 ====================
+        async function callDeepSeekAPI(endpoint, payload) {
+            if (!deepseekApiKey) return null;
+            
+            try {
+                const response = await fetch(`https://api.deepseek.com/v1/${endpoint}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${deepseekApiKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                return await response.json();
+            } catch (error) {
+                console.error("DeepSeek API调用失败:", error);
+                return null;
+            }
+        }
+
+        // 获取鼓励消息（智能+预设混合模式）
+        async function getEncouragement(exercise, count) {
+            // 尝试获取智能鼓励
+            if (deepseekApiKey) {
+                const smartMsg = await getSmartEncouragement(exercise, count);
+                if (smartMsg) return smartMsg;
+            }
+            
+            // 使用预设语句
+            const randomIndex = Math.floor(Math.random() * DEFAULT_ENCOURAGEMENTS.length);
+            return DEFAULT_ENCOURAGEMENTS[randomIndex].replace('%count%', count);
+        }
+
+        async function getSmartEncouragement(exercise, count) {
+            const exerciseName = {
+                'pushup': '俯卧撑',
+                'situp': '仰卧起坐',
+                'squat': '深蹲'
+            }[exercise] || '运动';
+            
+            const prompt = `用户刚刚完成了${count}个${exerciseName}，请用中文给一句不超过20字的幽默鼓励语`;
+            
+            const data = await callDeepSeekAPI("chat/completions", {
+                model: DEEPSEEK_CHAT_MODEL,
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.8,
+                max_tokens: 50
+            });
+            
+            return data?.choices?.[0]?.message?.content;
+        }
+
+        // ==================== 核心功能逻辑 ====================
+        // 初始化MediaPipe Pose
+        const pose = new Pose({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+            }
+        });
+        
+        pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        
+        pose.onResults(onResults);
+        
+        // 摄像头设置
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                if (!isAnalyzingVideo) {
+                    await pose.send({image: videoElement});
+                }
+            },
+            width: 640,
+            height: 480
+        });
+        
+        // 开始按钮点击事件
+        startButton.addEventListener('click', () => {
+            videoInputElement.style.display = 'none';
+            videoElement.style.display = 'block';
+            isAnalyzingVideo = false;
+            camera.start();
+            startButton.disabled = true;
+            startButton.textContent = "检测中...";
+            uploadButton.disabled = false;
+            lastActivityTime = Date.now();
+            safeSpeak(`系统启动，${getExerciseName()}检测已开始，请保持标准姿势`);
+        });
+        
+        // 上传视频按钮点击事件
+        uploadButton.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'video/*';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const videoURL = URL.createObjectURL(file);
+                videoInputElement.src = videoURL;
+                videoInputElement.style.display = 'block';
+                videoElement.style.display = 'none';
+                isAnalyzingVideo = true;
+                
+                // 重置分析数据
+                videoAnalysisData = {
+                    count: 0,
+                    averageSpeed: 0,
+                    quality: [],
+                    issues: []
+                };
+                
+                analyzeVideo();
+            };
+            
+            input.click();
+        });
+        
+        // 分析上传的视频
+        async function analyzeVideo() {
+            startButton.disabled = false;
+            startButton.textContent = "开始检测";
+            uploadButton.disabled = true;
+            uploadButton.textContent = "分析中...";
+            
+            feedbackMessage = "⏳ 正在分析视频，请稍候...";
+            feedbackTime = Date.now();
+            updateFeedback();
+            
+            let lastRepTime = 0;
+            let repTimes = [];
+            let qualityScores = [];
+            let detectedIssues = new Set();
+            
+            videoInputElement.onplay = async () => {
+                const startTime = Date.now();
+                let frameCount = 0;
+                
+                const processFrame = async () => {
+                    if (videoInputElement.paused || videoInputElement.ended) {
+                        const totalTime = (Date.now() - startTime) / 1000;
+                        const averageSpeed = videoAnalysisData.count > 0 ? 
+                            totalTime / videoAnalysisData.count : 0;
+                        
+                        videoAnalysisData.averageSpeed = averageSpeed;
+                        
+                        // 生成报告
+                        let reportHTML = `
+                            <p>分析完成！共检测到 ${videoAnalysisData.count} 次${getExerciseName()}</p>
+                            <p>平均速度: ${averageSpeed.toFixed(2)}秒/次</p>
+                            <p>检测到的问题: ${Array.from(detectedIssues).join(', ') || '无'}</p>
+                        `;
+                        
+                        if (deepseekApiKey) {
+                            const smartReport = await getSmartAnalysis();
+                            reportHTML += markdownToHtml(smartReport);
+                        } else {
+                            reportHTML += `<p class="tip">启用DeepSeek API可获得智能分析建议</p>`;
+                        }
+                        
+                        reportContent.innerHTML = reportHTML;
+                        analysisReport.style.display = 'block';
+                        analysisReport.scrollIntoView({ behavior: 'smooth' });
+                        
+                        const summary = deepseekApiKey ? 
+                            await getSummary() : 
+                            "视频分析完成，请查看报告";
+                        safeSpeak(summary);
+                        
+                        uploadButton.disabled = false;
+                        uploadButton.textContent = "上传视频分析";
+                        return;
+                    }
+                    
+                    try {
+                        await pose.send({image: videoInputElement});
+                        frameCount++;
+                        requestAnimationFrame(processFrame);
+                    } catch (error) {
+                        console.error("视频分析出错:", error);
+                        feedbackMessage = "⚠ 视频分析出错";
+                        feedbackTime = Date.now();
+                        updateFeedback();
+                        uploadButton.disabled = false;
+                        uploadButton.textContent = "上传视频分析";
+                    }
+                };
+                
+                processFrame();
+            };
+            
+            videoInputElement.play();
+        }
+
+        async function getSmartAnalysis() {
+            const prompt = `根据训练数据生成分析报告：
+- 完成次数: ${videoAnalysisData.count}
+- 平均速度: ${videoAnalysisData.averageSpeed.toFixed(2)}秒/次
+- 主要问题: ${videoAnalysisData.issues.join(', ')}
+用中文返回Markdown格式的报告，包含改进建议`;
+            
+            const data = await callDeepSeekAPI("chat/completions", {
+                model: DEEPSEEK_CHAT_MODEL,
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+                max_tokens: 500
+            });
+            
+            return data?.choices?.[0]?.message?.content || "";
+        }
+
+        async function getSummary() {
+            const prompt = "用50字总结训练分析结果";
+            const data = await callDeepSeekAPI("chat/completions", {
+                model: DEEPSEEK_CHAT_MODEL,
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+                max_tokens: 100
+            });
+            return data?.choices?.[0]?.message?.content || "分析完成";
+        }
+        
+        // 重置按钮点击事件
+        resetButton.addEventListener('click', () => {
+            resetCount();
+            feedbackMessage = "计数已重置";
+            feedbackTime = Date.now();
+            updateFeedback();
+            safeSpeak("计数已重置");
+        });
+
+        function resetCount() {
+            if (currentExercise === 'pushup') pushUpCount = 0;
+            else if (currentExercise === 'situp') sitUpCount = 0;
+            else squatCount = 0;
+            countElement.textContent = getCurrentCount();
+        }
+
+        // 运动类型变化
+        exerciseType.addEventListener('change', () => {
+            currentExercise = exerciseType.value;
+            updateInstructions();
+            resetCount();
+        });
+
+        // 获取当前计数
+        function getCurrentCount() {
+            return {
+                'pushup': pushUpCount,
+                'situp': sitUpCount,
+                'squat': squatCount
+            }[currentExercise] || 0;
+        }
+
+        // 更新使用说明
+        function updateInstructions() {
+            const instructions = {
+                'pushup': [
+                    "保持标准俯卧撑姿势：身体成一条直线",
+                    "下压时肘部弯曲小于90度，上升时伸直"
+                ],
+                'situp': [
+                    "保持标准仰卧起坐姿势：膝盖弯曲",
+                    "上升时颈部角度应大于120度"
+                ],
+                'squat': [
+                    "双脚与肩同宽",
+                    "下蹲时膝盖不超过脚尖"
+                ]
+            };
+            
+            const baseInstructions = [
+                "点击'开始检测'允许摄像头访问",
+                "确保全身在画面中可见",
+                "系统会实时反馈动作质量",
+                "可以上传视频进行离线分析"
+            ];
+            
+            instructionsList.innerHTML = [
+                ...baseInstructions,
+                ...instructions[currentExercise]
+                .map(text => `<li>${text}</li>`).join('');
+        }
+
+        // 处理姿势检测结果
+        async function onResults(results) {
+            if (!results.poseLandmarks) {
+                statusElement.textContent = "未检测到人体";
+                return;
+            }
+            
+            const landmarks = results.poseLandmarks;
+            
+            try {
+                if (currentExercise === 'pushup') handlePushup(landmarks);
+                else if (currentExercise === 'situp') handleSitup(landmarks);
+                else handleSquat(landmarks);
+                
+                checkInactivity();
+                updateFeedback();
+                drawDog();
+            } catch (e) {
+                console.error("分析姿势时出错:", e);
+            }
+        }
+
+        function handlePushup(landmarks) {
+            const leftAngle = calculateAngle(landmarks[11], landmarks[13], landmarks[15]);
+            const rightAngle = calculateAngle(landmarks[12], landmarks[14], landmarks[16]);
+            const avgAngle = (leftAngle + rightAngle) / 2;
+            
+            angleElement.textContent = Math.round(avgAngle);
+            const alignmentOk = checkAlignment(landmarks);
+
+            if (!isDownPosition && avgAngle < 90) {
+                isDownPosition = true;
+                feedbackMessage = alignmentOk ? "✓ 下压到位" : "⚠ 保持身体直线！";
+                dogState = alignmentOk ? "happy" : "warning";
+                safeSpeak(alignmentOk ? "下压到位" : "注意身体姿势");
+            } else if (isDownPosition && avgAngle > 160) {
+                isDownPosition = false;
+                pushUpCount++;
+                countElement.textContent = pushUpCount;
+                handleRepComplete();
+            }
+            
+            statusElement.textContent = `${isDownPosition ? "下压" : "上升"}状态${alignmentOk ? "" : " (姿势不正)"}`;
+        }
+
+        async function handleRepComplete() {
+            const encouragement = await getEncouragement(currentExercise, getCurrentCount());
+            feedbackMessage = `✓ ${encouragement}`;
+            safeSpeak(encouragement);
+            
+            const speed = (Date.now() - lastUpTime) / 1000;
+            lastUpTime = Date.now();
+            
+            if (speed < (currentExercise === 'squat' ? 1.5 : 1.0)) {
+                feedbackMessage = "⚠ 动作太快！";
+                dogState = "warning";
+                safeSpeak("请控制动作速度");
+            }
+        }
+
+        function checkInactivity() {
+            const timeDiff = (Date.now() - lastActivityTime) / 1000;
+            if (timeDiff > 5 && !inactivityMessageShown) {
+                inactivityMessageShown = true;
+                dogState = "sad";
+                feedbackMessage = "⚠ 主人你在干嘛咧，咋不做啊";
+                feedbackTime = Date.now();
+                safeSpeak(feedbackMessage);
+            }
+        }
+
+        // 角度计算等工具函数
+        function calculateAngle(a, b, c) {
+            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            return angle > 180.0 ? 360 - angle : angle;
+        }
+
+        function checkAlignment(landmarks) {
+            // 身体直线检测逻辑
+            try {
+                const shoulderCenter = midpoint(landmarks[11], landmarks[12]);
+                const hipCenter = midpoint(landmarks[23], landmarks[24]);
+                const ankleCenter = midpoint(landmarks[27], landmarks[28]);
+                const bodyAngle = calculateAngle(shoulderCenter, hipCenter, ankleCenter);
+                return Math.abs(bodyAngle - 180) < 10;
+            } catch {
+                return false;
+            }
+        }
+
+        function midpoint(a, b) {
+            return {x: (a.x + b.x)/2, y: (a.y + b.y)/2};
+        }
+
+        // 绘制狗狗
+        function drawDog() {
+            const size = dogCanvas.width;
+            dogCtx.clearRect(0, 0, size, size);
+            
+            // 根据状态调整参数
+            let earAngle = 0;
+            let mouthCurve = 30;
+            let tongueVisible = false;
+            let eyeBrowOffset = 0;
+            let tailWag = 0;
+            
+            if (dogState === "happy") {
+                earAngle = Math.sin(frameCount * 0.2) * 20;
+                mouthCurve = 60;
+                tongueVisible = true;
+                tailWag = Math.sin(frameCount * 0.3) * 30;
+            } else if (dogState === "warning") {
+                earAngle = -30;
+                mouthCurve = 0;
+                eyeBrowOffset = -5;
+            } else if (dogState === "sad") {
+                earAngle = -15;
+                mouthCurve = -30;
+                eyeBrowOffset = 10;
+            }
+            
+            // 绘制脸部
+            const faceCenter = {x: size/2, y: size/2};
+            const faceRadius = size/3;
+            const gradient = dogCtx.createRadialGradient(
+                faceCenter.x, faceCenter.y, 0,
+                faceCenter.x, faceCenter.y, faceRadius
+            );
+            gradient.addColorStop(0, "#FFD700");
+            gradient.addColorStop(1, "#FFA500");
+            
+            dogCtx.beginPath();
+            dogCtx.arc(faceCenter.x, faceCenter.y, faceRadius, 0, Math.PI * 2);
+            dogCtx.fillStyle = gradient;
+            dogCtx.fill();
+            dogCtx.strokeStyle = "#DAA520";
+            dogCtx.lineWidth = 3;
+            dogCtx.stroke();
+            
+        // 绘制耳朵 (动态效果)
+        const leftEarPos = {x: faceCenter.x - faceRadius, y: faceCenter.y - faceRadius/2};
+            const rightEarPos = {x: faceCenter.x + faceRadius, y: faceCenter.y - faceRadius/2};
+            
+            // 左耳
+            dogCtx.beginPath();
+            dogCtx.moveTo(leftEarPos.x, leftEarPos.y);
+            dogCtx.lineTo(leftEarPos.x - 20, leftEarPos.y - 30 + earAngle);
+            dogCtx.lineTo(leftEarPos.x + 20, leftEarPos.y - 20 + earAngle/2);
+            dogCtx.closePath();
+            dogCtx.fillStyle = "#FFA500";
+            dogCtx.fill();
+            dogCtx.strokeStyle = "#DAA520";
+            dogCtx.lineWidth = 2;
+            dogCtx.stroke();
+            
+            // 右耳
+            dogCtx.beginPath();
+            dogCtx.moveTo(rightEarPos.x, rightEarPos.y);
+            dogCtx.lineTo(rightEarPos.x + 20, rightEarPos.y - 30 - earAngle);
+            dogCtx.lineTo(rightEarPos.x - 20, rightEarPos.y - 20 - earAngle/2);
+            dogCtx.closePath();
+            dogCtx.fillStyle = "#FFA500";
+            dogCtx.fill();
+            dogCtx.strokeStyle = "#DAA520";
+            dogCtx.lineWidth = 2;
+            dogCtx.stroke();
+            
+            // 眼睛大小
+            const eyeSize = size/8 * eyeSizeFactor;
+            
+            // 计算眼睛看向鼠标的位置
+            let leftEyeX = faceCenter.x - faceRadius/2;
+            let leftEyeY = faceCenter.y;
+            let rightEyeX = faceCenter.x + faceRadius/2;
+            let rightEyeY = faceCenter.y;
+            
+            // 如果鼠标在狗狗区域内，眼睛跟随鼠标
+            if (isMouseOverDog) {
+                const dogRect = dogCanvas.getBoundingClientRect();
+                const relativeX = mouseX - dogRect.left - size/2;
+                const relativeY = mouseY - dogRect.top - size/2;
+                
+                // 计算眼睛看向鼠标的偏移量（限制在眼窝内）
+                const maxOffset = eyeSize/3;
+                const leftEyeOffsetX = Math.min(maxOffset, Math.max(-maxOffset, relativeX * 0.1));
+                const leftEyeOffsetY = Math.min(maxOffset, Math.max(-maxOffset, relativeY * 0.1));
+                const rightEyeOffsetX = Math.min(maxOffset, Math.max(-maxOffset, relativeX * 0.1));
+                const rightEyeOffsetY = Math.min(maxOffset, Math.max(-maxOffset, relativeY * 0.1));
+                
+                leftEyeX += leftEyeOffsetX;
+                leftEyeY += leftEyeOffsetY;
+                rightEyeX += rightEyeOffsetX;
+                rightEyeY += rightEyeOffsetY;
+            } else if (dogState === "happy") {
+                leftEyeY -= eyeSize/6;
+                rightEyeY -= eyeSize/6;
+            } else if (dogState === "sad") {
+                leftEyeY += eyeSize/6;
+                rightEyeY += eyeSize/6;
+            }
+            
+            // 绘制眉毛（在不开心和警告状态）
+            if (dogState === "sad" || dogState === "warning" || dogState === "angry") {
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x - faceRadius/2 - eyeSize/2, faceCenter.y - eyeSize/2 + eyeBrowOffset);
+                dogCtx.lineTo(faceCenter.x - faceRadius/2 + eyeSize/2, faceCenter.y - eyeSize/2 + eyeBrowOffset);
+                dogCtx.strokeStyle = "#8B4513";
+                dogCtx.lineWidth = 2;
+                dogCtx.stroke();
+                
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x + faceRadius/2 - eyeSize/2, faceCenter.y - eyeSize/2 + eyeBrowOffset);
+                dogCtx.lineTo(faceCenter.x + faceRadius/2 + eyeSize/2, faceCenter.y - eyeSize/2 + eyeBrowOffset);
+                dogCtx.strokeStyle = "#8B4513";
+                dogCtx.lineWidth = 2;
+                dogCtx.stroke();
+            }
+            
+            // 绘制眼睛
+            if (eyeShape === "circle") {
+                // 左眼（圆形）
+                dogCtx.beginPath();
+                dogCtx.arc(faceCenter.x - faceRadius/2, faceCenter.y, eyeSize/2, 0, Math.PI * 2);
+                dogCtx.fillStyle = "white";
+                dogCtx.fill();
+                
+                // 右眼（圆形）
+                dogCtx.beginPath();
+                dogCtx.arc(faceCenter.x + faceRadius/2, faceCenter.y, eyeSize/2, 0, Math.PI * 2);
+                dogCtx.fillStyle = "white";
+                dogCtx.fill();
+            } else if (eyeShape === "happy") {
+                // 开心的眼睛（半圆形）
+                dogCtx.beginPath();
+                dogCtx.arc(faceCenter.x - faceRadius/2, faceCenter.y - eyeSize/6, eyeSize/2, 0, Math.PI);
+                dogCtx.fillStyle = "white";
+                dogCtx.fill();
+                
+                dogCtx.beginPath();
+                dogCtx.arc(faceCenter.x + faceRadius/2, faceCenter.y - eyeSize/6, eyeSize/2, 0, Math.PI);
+                dogCtx.fillStyle = "white";
+                dogCtx.fill();
+            } else if (eyeShape === "angry") {
+                // 生气的眼睛（倒V形）
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x - faceRadius/2 - eyeSize/2, faceCenter.y - eyeSize/4);
+                dogCtx.lineTo(faceCenter.x - faceRadius/2, faceCenter.y + eyeSize/4);
+                dogCtx.lineTo(faceCenter.x - faceRadius/2 + eyeSize/2, faceCenter.y - eyeSize/4);
+                dogCtx.fillStyle = "white";
+                dogCtx.fill();
+                
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x + faceRadius/2 - eyeSize/2, faceCenter.y - eyeSize/4);
+                dogCtx.lineTo(faceCenter.x + faceRadius/2, faceCenter.y + eyeSize/4);
+                dogCtx.lineTo(faceCenter.x + faceRadius/2 + eyeSize/2, faceCenter.y - eyeSize/4);
+                dogCtx.fillStyle = "white";
+                dogCtx.fill();
+            }
+            
+            // 瞳孔 (根据状态变化)
+            let pupilOffsetX = 0;
+            let pupilOffsetY = 0;
+            
+            if (isMouseOverDog) {
+                // 瞳孔看向鼠标
+                pupilOffsetX = (leftEyeX - (faceCenter.x - faceRadius/2)) * 0.5;
+                pupilOffsetY = (leftEyeY - faceCenter.y) * 0.5;
+            } else if (dogState === "happy") {
+                pupilOffsetY = -eyeSize/6;
+            } else if (dogState === "sad") {
+                pupilOffsetY = eyeSize/6;
+            }
+            
+            // 左瞳孔
+            dogCtx.beginPath();
+            dogCtx.arc(
+                faceCenter.x - faceRadius/2 + pupilOffsetX, 
+                faceCenter.y + pupilOffsetY, 
+                eyeSize/4, 
+                0, 
+                Math.PI * 2
+            );
+            dogCtx.fillStyle = "black";
+            dogCtx.fill();
+            
+            // 右瞳孔
+            dogCtx.beginPath();
+            dogCtx.arc(
+                faceCenter.x + faceRadius/2 + pupilOffsetX, 
+                faceCenter.y + pupilOffsetY, 
+                eyeSize/4, 
+                0, 
+                Math.PI * 2
+            );
+            dogCtx.fillStyle = "black";
+            dogCtx.fill();
+            
+            // 鼻子
+            dogCtx.beginPath();
+            dogCtx.arc(faceCenter.x, faceCenter.y + faceRadius/3, eyeSize/2, 0, Math.PI * 2);
+            dogCtx.fillStyle = "#8B4513"; // 棕色鼻子
+            dogCtx.fill();
+            
+            // 嘴巴 (动态曲线)
+            const mouthStart = {x: faceCenter.x - faceRadius/2, y: faceCenter.y + faceRadius/2};
+            const mouthEnd = {x: faceCenter.x + faceRadius/2, y: faceCenter.y + faceRadius/2};
+            
+            dogCtx.beginPath();
+            dogCtx.moveTo(mouthStart.x, mouthStart.y);
+            
+            if (mouthCurve > 0) { // 微笑
+                const control1 = {x: mouthStart.x, y: mouthStart.y + mouthCurve};
+                const control2 = {x: mouthEnd.x, y: mouthEnd.y + mouthCurve};
+                dogCtx.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, mouthEnd.x, mouthEnd.y);
+            } else { // 撇嘴
+                const control1 = {x: mouthStart.x, y: mouthStart.y - Math.abs(mouthCurve)};
+                const control2 = {x: mouthEnd.x, y: mouthEnd.y - Math.abs(mouthCurve)};
+                dogCtx.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, mouthEnd.x, mouthEnd.y);
+            }
+            
+            dogCtx.strokeStyle = "#8B4513";
+            dogCtx.lineWidth = 2;
+            dogCtx.stroke();
+            
+            // 舌头 (开心时显示)
+            if (tongueVisible && dogState === "happy") {
+                const tonguePos = {x: faceCenter.x, y: mouthEnd.y + 5};
+                const tongueWidth = faceRadius/3;
+                dogCtx.beginPath();
+                dogCtx.ellipse(tonguePos.x, tonguePos.y + tongueWidth/2, 
+                              tongueWidth/2, tongueWidth/2, 0, 0, Math.PI);
+                dogCtx.fillStyle = "#FF6B8B";
+                dogCtx.fill();
+            }
+            
+            // 眼泪（悲伤时显示）
+            if (dogState === "sad") {
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x - faceRadius/2 - eyeSize/4, faceCenter.y + eyeSize/2);
+                dogCtx.quadraticCurveTo(
+                    faceCenter.x - faceRadius/2, faceCenter.y + eyeSize,
+                    faceCenter.x - faceRadius/2 + eyeSize/4, faceCenter.y + eyeSize/2
+                );
+                dogCtx.fillStyle = "rgba(100, 150, 255, 0.5)";
+                dogCtx.fill();
+                
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x + faceRadius/2 - eyeSize/4, faceCenter.y + eyeSize/2);
+                dogCtx.quadraticCurveTo(
+                    faceCenter.x + faceRadius/2, faceCenter.y + eyeSize,
+                    faceCenter.x + faceRadius/2 + eyeSize/4, faceCenter.y + eyeSize/2
+                );
+                dogCtx.fillStyle = "rgba(100, 150, 255, 0.5)";
+                dogCtx.fill();
+            }
+            
+            // 尾巴（开心时摇动）
+            if (dogState === "happy") {
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x + faceRadius, faceCenter.y);
+                dogCtx.quadraticCurveTo(
+                    faceCenter.x + faceRadius + 30, 
+                    faceCenter.y - 20 + tailWag, 
+                    faceCenter.x + faceRadius + 10, 
+                    faceCenter.y - 40
+                );
+                dogCtx.strokeStyle = "#FFA500";
+                dogCtx.lineWidth = 8;
+                dogCtx.stroke();
+            }
+            
+            // 点击动画效果
+            if (isDogClicked) {
+                const scale = 1 + Math.sin(clickAnimationFrame * 0.2) * 0.1;
+                dogCtx.setTransform(scale, 0, 0, scale, 
+                                  faceCenter.x * (1 - scale), 
+                                  faceCenter.y * (1 - scale));
+                clickAnimationFrame++;
+                
+                if (clickAnimationFrame > 20) {
+                    isDogClicked = false;
+                    dogCtx.setTransform(1, 0, 0, 1, 0, 0);
+                }
+            }
+            
+            // 拖拽效果
+            if (isDogDragged) {
+                const rotation = Math.sin(frameCount * 0.1) * 10;
+                dogCtx.translate(faceCenter.x, faceCenter.y);
+                dogCtx.rotate(rotation * Math.PI / 180);
+                dogCtx.translate(-faceCenter.x, -faceCenter.y);
+            }
+            
+            
+            frameCount++;
+        }
+// ==================== 事件监听 ====================
+        // 鼠标移动事件 - 眼睛跟随
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            // 检查鼠标是否在狗狗区域内
+            const dogRect = dogCanvas.getBoundingClientRect();
+            isMouseOverDog = (
+                mouseX >= dogRect.left && 
+                mouseX <= dogRect.right && 
+                mouseY >= dogRect.top && 
+                mouseY <= dogRect.bottom
+            );
+        });
+        
+        // 鼠标点击事件 - 汤姆猫效果
+        dogCanvas.addEventListener('click', () => {
+            isDogClicked = true;
+            clickAnimationFrame = 0;
+            dogState = "happy";
+            feedbackMessage = "✓ 汪汪！继续加油！";
+            feedbackTime = Date.now();
+            safeSpeak("汪汪，主人摸得我好舒服");
+        });
+        
+        // DeepSeek API密钥输入变化
+        deepseekKeyInput.addEventListener('input', (e) => {
+            deepseekApiKey = e.target.value.trim();
+            isDeepSeekAvailable = deepseekApiKey.length > 0;
+            
+            if (isDeepSeekAvailable) {
+                deepseekStatus.textContent = "DeepSeek API 已就绪";
+                deepseekStatus.style.color = "#4db8ff";
+            } else {
+                deepseekStatus.textContent = "未提供API密钥，部分功能受限";
+                deepseekStatus.style.color = "#ff6b6b";
+            }
+        });
+        
+        // 其他辅助函数
+        function getExerciseName() {
+            return {
+                'pushup': '俯卧撑',
+                'situp': '仰卧起坐',
+                'squat': '深蹲'
+            }[currentExercise];
+        }
+
+        function markdownToHtml(md) {
+            return md
+                .replace(/^# (.*)/gm, '<h4>$1</h4>')
+                .replace(/^## (.*)/gm, '<h5>$1</h5>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\* (.*)/g, '<li>$1</li>');
+        }
+
+        function safeSpeak(text) {
+            if (voiceLock || !synth) return;
+            voiceLock = true;
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            if (voice) utterance.voice = voice;
+            utterance.rate = 0.9;
+            
+            utterance.onend = () => voiceLock = false;
+            synth.speak(utterance);
+        }
+
+        function updateFeedback() {
+            if (Date.now() - feedbackTime < 3000) {
+                feedbackElement.textContent = feedbackMessage;
+                if (feedbackMessage.startsWith("✓")) {
+                    feedbackElement.style.color = "#4db8ff";
+                    feedbackElement.style.borderColor = "rgba(0, 150, 255, 0.5)";
+                } else if (feedbackMessage.startsWith("⚠")) {
+                    feedbackElement.style.color = "#ff6b6b";
+                    feedbackElement.style.borderColor = "rgba(255, 0, 0, 0.3)";
+                }
+            } else {
+                feedbackElement.textContent = "";
+                feedbackElement.style.color = "";
+                feedbackElement.style.borderColor = "";
+            }
+        }
+
+        // ==================== 初始化 ====================
+        if (synth) {
+            const loadVoice = () => {
+                voice = synth.getVoices().find(v => v.lang.includes('zh'));
+            };
+            loadVoice();
+            synth.onvoiceschanged = loadVoice;
+        }
+ // 初始绘制狗狗
+        drawDog();
+        
+        function animate() {
+            drawDog();
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // 初始化说明
+        updateInstructions();
+    </script>
+</body>
+</html>

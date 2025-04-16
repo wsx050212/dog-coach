@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金属风格俯卧撑检测 - 黄色狗狗教练</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(100, 100, 100, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(100, 100, 100, 0.1) 0%, transparent 20%);
+            text-align: center;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            background: 
+                linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 
+                0 0 15px rgba(0, 150, 255, 0.3),
+                0 0 30px rgba(0, 150, 255, 0.1),
+                inset 0 0 10px rgba(255, 255, 255, 0.05);
+            border: 1px solid #333;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0, 150, 255, 0.5), transparent);
+        }
+        
+        h1 {
+            color: #4db8ff;
+            text-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+            position: relative;
+            display: inline-block;
+        }
+        
+        h1::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #4db8ff, transparent);
+        }
+        
+        .video-container {
+            position: relative;
+            margin: 20px auto;
+            width: 640px;
+            height: 480px;
+            border: 3px solid #333;
+            border-radius: 5px;
+            box-shadow: 
+                0 0 20px rgba(0, 0, 0, 0.5),
+                inset 0 0 15px rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #output {
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            object-fit: cover;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 25px 0;
+            font-size: 18px;
+        }
+        
+        .stat-box {
+            background: linear-gradient(145deg, #2a2a2a, #1e1e1e);
+            padding: 15px 25px;
+            border-radius: 5px;
+            min-width: 120px;
+            box-shadow: 
+                0 3px 6px rgba(0, 0, 0, 0.3),
+                inset 0 0 5px rgba(255, 255, 255, 0.05);
+            border: 1px solid #333;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-box::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                135deg,
+                rgba(255, 255, 255, 0.1) 0%,
+                rgba(255, 255, 255, 0) 50%,
+                rgba(255, 255, 255, 0.1) 100%
+            );
+            pointer-events: none;
+        }
+        
+        .stat-box span {
+            color: #4db8ff;
+            font-weight: bold;
+            font-size: 24px;
+            display: block;
+            margin-top: 5px;
+        }
+        
+        .feedback {
+            margin: 25px 0;
+            padding: 15px;
+            background: rgba(0, 30, 60, 0.3);
+            border-radius: 5px;
+            font-size: 18px;
+            min-height: 27px;
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            box-shadow: inset 0 0 10px rgba(0, 150, 255, 0.2);
+            position: relative;
+        }
+        
+        .feedback::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 150, 255, 0.5), transparent);
+        }
+        
+        .dog-container {
+            margin: 25px auto;
+            width: 220px;
+            height: 220px;
+            position: relative;
+            background: linear-gradient(145deg, #2a2a2a, #1e1e1e);
+            border-radius: 5px;
+            box-shadow: 
+                0 3px 10px rgba(0, 0, 0, 0.5),
+                inset 0 0 5px rgba(255, 255, 255, 0.1);
+            border: 1px solid #333;
+            padding: 10px;
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #f5f5dc;
+            border-radius: 5px;
+        }
+        
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            background: linear-gradient(145deg, #2a2a2a, #333);
+            color: #e0e0e0;
+            border: none;
+            padding: 12px 25px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 
+                0 3px 6px rgba(0, 0, 0, 0.3),
+                inset 0 0 5px rgba(255, 255, 255, 0.1);
+            border: 1px solid #444;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            background: linear-gradient(145deg, #333, #2a2a2a);
+            box-shadow: 
+                0 0 10px rgba(0, 150, 255, 0.5),
+                inset 0 0 5px rgba(255, 255, 255, 0.2);
+            color: #4db8ff;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(0, 150, 255, 0.2),
+                transparent
+            );
+            transition: all 0.5s;
+        }
+        
+        button:hover::before {
+            left: 100%;
+        }
+        
+        .instructions {
+            text-align: left;
+            margin: 25px 0;
+            padding: 20px;
+            background: rgba(0, 30, 60, 0.2);
+            border-radius: 5px;
+            border: 1px solid rgba(0, 150, 255, 0.2);
+            box-shadow: inset 0 0 10px rgba(0, 150, 255, 0.1);
+            position: relative;
+        }
+        
+        .instructions h3 {
+            color: #4db8ff;
+            margin-top: 0;
+            border-bottom: 1px solid rgba(0, 150, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        
+        /* 金属边框效果 */
+        .metal-border {
+            position: absolute;
+            pointer-events: none;
+        }
+        
+        .metal-border.top {
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.bottom {
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.left {
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(0deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.right {
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(0deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .video-container {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 4/3;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .stat-box {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="metal-border top"></div>
+        <div class="metal-border bottom"></div>
+        <div class="metal-border left"></div>
+        <div class="metal-border right"></div>
+        
+        <h1>金属风格俯卧撑检测系统</h1>
+        
+        <div class="instructions">
+            <h3>使用说明：</h3>
+            <ol>
+                <li>点击"开始检测"按钮允许摄像头访问</li>
+                <li>确保全身在摄像头画面中可见</li>
+                <li>保持标准俯卧撑姿势：身体成一条直线</li>
+                <li>下压时肘部弯曲小于90度，上升时伸直</li>
+                <li>系统会实时反馈您的动作质量</li>
+            </ol>
+        </div>
+        
+        <div class="video-container">
+            <video id="output" autoplay playsinline></video>
+        </div>
+        
+        <div class="button-group">
+            <button id="startButton">开始检测</button>
+            <button id="resetButton">重置计数</button>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">计数<br><span id="count">0</span></div>
+            <div class="stat-box">肘部角度<br><span id="angle">0</span>°</div>
+            <div class="stat-box">状态<br><span id="status">等待开始</span></div>
+        </div>
+        
+        <div class="feedback" id="feedback"></div>
+        
+        <div class="dog-container">
+            <canvas id="dogCanvas" width="200" height="200"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        let pushUpCount = 0;
+        let isDownPosition = false;
+        let lastUpTime = Date.now();
+        let feedbackMessage = "";
+        let feedbackTime = 0;
+        let lastActivityTime = Date.now();
+        let inactivityMessageShown = false;
+        let dogState = "normal"; // normal/happy/warning/sad
+        let frameCount = 0;
+        let lastUpdate = Date.now();
+        let voiceLock = false;
+        let lastAngle = 0;
+        
+        // 语音合成
+        const synth = window.speechSynthesis;
+        let voice = null;
+        
+        // 获取DOM元素
+        const videoElement = document.getElementById('output');
+        const startButton = document.getElementById('startButton');
+        const resetButton = document.getElementById('resetButton');
+        const countElement = document.getElementById('count');
+        const angleElement = document.getElementById('angle');
+        const statusElement = document.getElementById('status');
+        const feedbackElement = document.getElementById('feedback');
+        const dogCanvas = document.getElementById('dogCanvas');
+        const dogCtx = dogCanvas.getContext('2d');
+        
+        // 初始化MediaPipe Pose
+        const pose = new Pose({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+            }
+        });
+        
+        pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        
+        pose.onResults(onResults);
+        
+        // 摄像头设置
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await pose.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+        
+        // 开始按钮点击事件
+        startButton.addEventListener('click', () => {
+            camera.start();
+            startButton.disabled = true;
+            startButton.textContent = "检测中...";
+            lastActivityTime = Date.now();
+            safeSpeak("系统启动，俯卧撑检测已开始，请保持标准姿势");
+        });
+        
+        // 重置按钮点击事件
+        resetButton.addEventListener('click', () => {
+            pushUpCount = 0;
+            countElement.textContent = pushUpCount;
+            feedbackMessage = "计数已重置";
+            feedbackTime = Date.now();
+            updateFeedback();
+            safeSpeak("计数已重置");
+        });
+        
+        // 加载语音
+        function loadVoice() {
+            const voices = synth.getVoices();
+            // 尝试找到中文语音
+            voice = voices.find(v => v.lang.includes('zh')) || voices[0];
+        }
+        
+        // 安全的语音播报（防止重叠）
+        function safeSpeak(text) {
+            if (voiceLock || !synth) return;
+            
+            voiceLock = true;
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            if (voice) utterance.voice = voice;
+            utterance.rate = 0.9;  // 比正常稍慢
+            
+            // 语音结束后解锁
+            utterance.onend = function() {
+                voiceLock = false;
+            };
+            
+            synth.speak(utterance);
+        }
+        
+        // 计算角度
+        function calculateAngle(a, b, c) {
+            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            return angle > 180.0 ? 360 - angle : angle;
+        }
+        
+        // 检查身体是否直线
+        function checkAlignment(landmarks) {
+            try {
+                const leftShoulder = landmarks[11];
+                const rightShoulder = landmarks[12];
+                const leftHip = landmarks[23];
+                const rightHip = landmarks[24];
+                const leftAnkle = landmarks[27];
+                const rightAnkle = landmarks[28];
+                
+                const shoulderCenter = {
+                    x: (leftShoulder.x + rightShoulder.x) / 2,
+                    y: (leftShoulder.y + rightShoulder.y) / 2
+                };
+                
+                const hipCenter = {
+                    x: (leftHip.x + rightHip.x) / 2,
+                    y: (leftHip.y + rightHip.y) / 2
+                };
+                
+                const ankleCenter = {
+                    x: (leftAnkle.x + rightAnkle.x) / 2,
+                    y: (leftAnkle.y + rightAnkle.y) / 2
+                };
+                
+                const bodyAngle = calculateAngle(shoulderCenter, hipCenter, ankleCenter);
+                return Math.abs(bodyAngle - 180) < 10;
+            } catch {
+                return false;
+            }
+        }
+        
+        // 处理姿势检测结果
+        function onResults(results) {
+            if (!results.poseLandmarks) {
+                statusElement.textContent = "未检测到人体";
+                return;
+            }
+            
+            // 获取关键点
+            const landmarks = results.poseLandmarks;
+            
+            try {
+                // 计算肘部角度
+                const leftShoulder = landmarks[11];
+                const rightShoulder = landmarks[12];
+                const leftElbow = landmarks[13];
+                const rightElbow = landmarks[14];
+                const leftWrist = landmarks[15];
+                const rightWrist = landmarks[16];
+                
+                const leftAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
+                const rightAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
+                const avgAngle = (leftAngle + rightAngle) / 2;
+                
+                angleElement.textContent = Math.round(avgAngle);
+                
+                // 检查身体直线
+                const alignmentOk = checkAlignment(landmarks);
+                
+                // 检查角度变化是否小于10度（视为没动）
+                const angleChanged = Math.abs(avgAngle - lastAngle) > 10;
+                if (angleChanged) {
+                    lastAngle = avgAngle;
+                    lastActivityTime = Date.now();
+                    inactivityMessageShown = false;
+                }
+
+                // 动作状态判断
+                if (!isDownPosition && avgAngle < 90) {
+                    isDownPosition = true;
+                    feedbackMessage = "✓ 下压到位";
+                    feedbackTime = Date.now();
+                    dogState = "happy";
+                    
+                    if (!alignmentOk) {
+                        feedbackMessage = "⚠ 保持身体直线！";
+                        dogState = "warning";
+                        safeSpeak("注意姿势，保持身体成一条直线");
+                    } else {
+                        safeSpeak("下压到位，很好");
+                    }
+                } else if (isDownPosition && avgAngle > 160) {
+                    isDownPosition = false;
+                    pushUpCount++;
+                    countElement.textContent = pushUpCount;
+                    feedbackMessage = `✓ 完成 ${pushUpCount} 个`;
+                    feedbackTime = Date.now();
+                    dogState = "happy";
+                    
+                    const speed = (Date.now() - lastUpTime) / 1000;
+                    lastUpTime = Date.now();
+                    
+                    if (speed < 1.0) {
+                        feedbackMessage = "⚠ 动作太快！";
+                        dogState = "warning";
+                        safeSpeak("动作太快了，请控制速度");
+                    } else {
+                        safeSpeak(`很棒，已完成 ${pushUpCount} 个俯卧撑`);
+                    }
+                }
+                
+                // 检查5秒不活动
+                const timeDiff = (Date.now() - lastActivityTime) / 1000;
+                if (timeDiff > 5 && !inactivityMessageShown) {
+                    inactivityMessageShown = true;
+                    dogState = "sad";
+                    feedbackMessage = "⚠ 主人你在干嘛咧，咋不做啊";
+                    feedbackTime = Date.now();
+                    safeSpeak(feedbackMessage);
+                }
+                
+                // 更新状态显示
+                statusElement.textContent = isDownPosition ? "下压状态" : "上升状态";
+                if (!alignmentOk) statusElement.textContent += " (身体不直)";
+                
+                updateFeedback();
+                drawDog();
+            } catch (e) {
+                console.error("分析姿势时出错:", e);
+            }
+        }
+        
+        // 更新反馈信息
+        function updateFeedback() {
+            if (Date.now() - feedbackTime < 3000) {
+                feedbackElement.textContent = feedbackMessage;
+                
+                // 根据消息类型设置不同样式
+                if (feedbackMessage.startsWith("✓")) {
+                    feedbackElement.style.color = "#4db8ff";
+                    feedbackElement.style.borderColor = "rgba(0, 150, 255, 0.5)";
+                    feedbackElement.style.boxShadow = "inset 0 0 10px rgba(0, 150, 255, 0.3)";
+                } else if (feedbackMessage.startsWith("⚠")) {
+                    feedbackElement.style.color = "#ff6b6b";
+                    feedbackElement.style.borderColor = "rgba(255, 0, 0, 0.3)";
+                    feedbackElement.style.boxShadow = "inset 0 0 10px rgba(255, 0, 0, 0.2)";
+                }
+            } else {
+                feedbackElement.textContent = "";
+                feedbackElement.style.color = "";
+                feedbackElement.style.borderColor = "";
+                feedbackElement.style.boxShadow = "";
+            }
+        }
+        
+        // 绘制黄色狗狗（含不开心表情）
+        function drawDog() {
+            const size = dogCanvas.width;
+            dogCtx.clearRect(0, 0, size, size);
+            
+            // 根据状态调整参数
+            let earAngle = 0;
+            let mouthCurve = 30;
+            let tongueVisible = false;
+            let eyeBrowOffset = 0;
+            
+            if (dogState === "happy") {
+                earAngle = Math.sin(frameCount * 0.2) * 20; // 耳朵摆动
+                mouthCurve = 60; // 更开心的笑容
+                tongueVisible = true;
+            } else if (dogState === "warning") {
+                earAngle = -30; // 耳朵向后贴
+                mouthCurve = 0;  // 平嘴
+                eyeBrowOffset = -5;
+            } else if (dogState === "sad") {
+                earAngle = -15;  // 耳朵下垂
+                mouthCurve = -30; // 下弯嘴
+                eyeBrowOffset = 10;
+            }
+            
+            // 绘制脸部轮廓 (简化为圆形)
+            const faceCenter = {x: size/2, y: size/2};
+            const faceRadius = size/3;
+            
+            // 黄色狗狗的渐变颜色
+            const faceGradient = dogCtx.createRadialGradient(
+                faceCenter.x, faceCenter.y, 0,
+                faceCenter.x, faceCenter.y, faceRadius
+            );
+            faceGradient.addColorStop(0, "#FFD700"); // 亮黄色
+            faceGradient.addColorStop(1, "#FFA500"); // 橙色
+            
+            dogCtx.beginPath();
+            dogCtx.arc(faceCenter.x, faceCenter.y, faceRadius, 0, Math.PI * 2);
+            dogCtx.fillStyle = faceGradient;
+            dogCtx.fill();
+            dogCtx.strokeStyle = "#DAA520";
+            dogCtx.lineWidth = 3;
+            dogCtx.stroke();
+            
+            // 绘制耳朵 (动态效果)
+            const leftEarPos = {x: faceCenter.x - faceRadius, y: faceCenter.y - faceRadius/2};
+            const rightEarPos = {x: faceCenter.x + faceRadius, y: faceCenter.y - faceRadius/2};
+            
+            // 左耳
+            dogCtx.beginPath();
+            dogCtx.moveTo(leftEarPos.x, leftEarPos.y);
+            dogCtx.lineTo(leftEarPos.x - 20, leftEarPos.y - 30 + earAngle);
+            dogCtx.lineTo(leftEarPos.x + 20, leftEarPos.y - 20 + earAngle/2);
+            dogCtx.closePath();
+            dogCtx.fillStyle = "#FFA500";
+            dogCtx.fill();
+            dogCtx.strokeStyle = "#DAA520";
+            dogCtx.lineWidth = 2;
+            dogCtx.stroke();
+            
+            // 右耳
+            dogCtx.beginPath();
+            dogCtx.moveTo(rightEarPos.x, rightEarPos.y);
+            dogCtx.lineTo(rightEarPos.x + 20, rightEarPos.y - 30 - earAngle);
+            dogCtx.lineTo(rightEarPos.x - 20, rightEarPos.y - 20 - earAngle/2);
+            dogCtx.closePath();
+            dogCtx.fillStyle = "#FFA500";
+            dogCtx.fill();
+            dogCtx.strokeStyle = "#DAA520";
+            dogCtx.lineWidth = 2;
+            dogCtx.stroke();
+            
+            // 眼睛大小调整为与final4.html一致
+            const eyeSize = size/8;  // 调整为与final4.html相同的比例
+            
+            // 绘制眉毛（在不开心和警告状态）
+            if (dogState === "sad" || dogState === "warning") {
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x - faceRadius/2 - eyeSize/2, faceCenter.y - eyeSize/2 + eyeBrowOffset);
+                dogCtx.lineTo(faceCenter.x - faceRadius/2 + eyeSize/2, faceCenter.y - eyeSize/2 + eyeBrowOffset);
+                dogCtx.strokeStyle = "#8B4513";
+                dogCtx.lineWidth = 2;
+                dogCtx.stroke();
+                
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x + faceRadius/2 - eyeSize/2, faceCenter.y - eyeSize/2 + eyeBrowOffset);
+                dogCtx.lineTo(faceCenter.x + faceRadius/2 + eyeSize/2, faceCenter.y - eyeSize/2 + eyeBrowOffset);
+                dogCtx.strokeStyle = "#8B4513";
+                dogCtx.lineWidth = 2;
+                dogCtx.stroke();
+            }
+            
+            // 左眼（保持与final4.html相同的圆形）
+            dogCtx.beginPath();
+            dogCtx.arc(faceCenter.x - faceRadius/2, faceCenter.y, eyeSize/2, 0, Math.PI * 2);
+            dogCtx.fillStyle = "white";
+            dogCtx.fill();
+            
+            // 右眼（保持与final4.html相同的圆形）
+            dogCtx.beginPath();
+            dogCtx.arc(faceCenter.x + faceRadius/2, faceCenter.y, eyeSize/2, 0, Math.PI * 2);
+            dogCtx.fillStyle = "white";
+            dogCtx.fill();
+            
+            // 瞳孔 (根据状态变化)
+            let pupilOffset = 0;
+            if (dogState === "happy") pupilOffset = -eyeSize/6;
+            else if (dogState === "sad") pupilOffset = eyeSize/6;
+            
+            // 左瞳孔
+            dogCtx.beginPath();
+            dogCtx.arc(faceCenter.x - faceRadius/2, faceCenter.y + pupilOffset, eyeSize/4, 0, Math.PI * 2);
+            dogCtx.fillStyle = "black";
+            dogCtx.fill();
+            
+            // 右瞳孔
+            dogCtx.beginPath();
+            dogCtx.arc(faceCenter.x + faceRadius/2, faceCenter.y + pupilOffset, eyeSize/4, 0, Math.PI * 2);
+            dogCtx.fillStyle = "black";
+            dogCtx.fill();
+            
+            // 鼻子
+            dogCtx.beginPath();
+            dogCtx.arc(faceCenter.x, faceCenter.y + faceRadius/3, eyeSize/2, 0, Math.PI * 2);
+            dogCtx.fillStyle = "#8B4513"; // 棕色鼻子
+            dogCtx.fill();
+            
+            // 嘴巴 (动态曲线)
+            const mouthStart = {x: faceCenter.x - faceRadius/2, y: faceCenter.y + faceRadius/2};
+            const mouthEnd = {x: faceCenter.x + faceRadius/2, y: faceCenter.y + faceRadius/2};
+            
+            dogCtx.beginPath();
+            dogCtx.moveTo(mouthStart.x, mouthStart.y);
+            
+            if (mouthCurve > 0) { // 微笑
+                const control1 = {x: mouthStart.x, y: mouthStart.y + mouthCurve};
+                const control2 = {x: mouthEnd.x, y: mouthEnd.y + mouthCurve};
+                dogCtx.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, mouthEnd.x, mouthEnd.y);
+            } else { // 撇嘴
+                const control1 = {x: mouthStart.x, y: mouthStart.y - Math.abs(mouthCurve)};
+                const control2 = {x: mouthEnd.x, y: mouthEnd.y - Math.abs(mouthCurve)};
+                dogCtx.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, mouthEnd.x, mouthEnd.y);
+            }
+            
+            dogCtx.strokeStyle = "#8B4513";
+            dogCtx.lineWidth = 2;
+            dogCtx.stroke();
+            
+            // 舌头 (开心时显示)
+            if (tongueVisible && dogState === "happy") {
+                const tonguePos = {x: faceCenter.x, y: mouthEnd.y + 5};
+                const tongueWidth = faceRadius/3;
+                dogCtx.beginPath();
+                dogCtx.ellipse(tonguePos.x, tonguePos.y + tongueWidth/2, 
+                              tongueWidth/2, tongueWidth/2, 0, 0, Math.PI);
+                dogCtx.fillStyle = "#FF6B8B";
+                dogCtx.fill();
+            }
+            
+            // 眼泪（悲伤时显示）
+            if (dogState === "sad") {
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x - faceRadius/2 - eyeSize/4, faceCenter.y + eyeSize/2);
+                dogCtx.quadraticCurveTo(
+                    faceCenter.x - faceRadius/2, faceCenter.y + eyeSize,
+                    faceCenter.x - faceRadius/2 + eyeSize/4, faceCenter.y + eyeSize/2
+                );
+                dogCtx.fillStyle = "rgba(100, 150, 255, 0.5)";
+                dogCtx.fill();
+                
+                dogCtx.beginPath();
+                dogCtx.moveTo(faceCenter.x + faceRadius/2 - eyeSize/4, faceCenter.y + eyeSize/2);
+                dogCtx.quadraticCurveTo(
+                    faceCenter.x + faceRadius/2, faceCenter.y + eyeSize,
+                    faceCenter.x + faceRadius/2 + eyeSize/4, faceCenter.y + eyeSize/2
+                );
+                dogCtx.fillStyle = "rgba(100, 150, 255, 0.5)";
+                dogCtx.fill();
+            }
+            
+            // 更新动画帧
+            if (Date.now() - lastUpdate > 100) {
+                frameCount++;
+                lastUpdate = Date.now();
+            }
+        }
+        
+        // 初始化语音
+        if (synth) {
+            loadVoice();
+            if (synth.onvoiceschanged !== undefined) {
+                synth.onvoiceschanged = loadVoice;
+            }
+        }
+        
+        // 初始绘制狗狗
+        drawDog();
+    </script>
+</body>
+</html>

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金属风格俯卧撑检测 - 黄色狗狗教练</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(100, 100, 100, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(100, 100, 100, 0.1) 0%, transparent 20%);
+            text-align: center;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            background: 
+                linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 
+                0 3px 10px rgba(0, 0, 0, 0.5),
+                inset 0 0 5px rgba(255, 255, 255, 0.1);
+        }
+        
+        .metal-border {
+            position: absolute;
+            pointer-events: none;
+        }
+        
+        .metal-border.top {
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.bottom {
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.left {
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        .metal-border.right {
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, 
+                transparent, 
+                #777, 
+                #aaa, 
+                #777, 
+                transparent);
+        }
+        
+        h1 {
+            color: #4db8ff;
+        }
+        
+        .instructions {
+            text-align: left;
+            margin: 25px 0;
+            padding: 20px;
+            background: rgba(0, 30, 60, 0.2);
+            border-radius: 5px;
+            border: 1px solid rgba(0, 150, 255, 0.2);
+            box-shadow: inset 0 0 10px rgba(0, 150, 255, 0.1);
+            position: relative;
+        }
+        
+        .instructions h3 {
+            color: #4db8ff;
+            margin-top: 0;
+            border-bottom: 1px solid rgba(0, 150, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        
+        .video-container {
+            margin: 25px 0;
+        }
+        
+        video {
+            width: 100%;
+            max-width: 640px;
+            border-radius: 5px;
+        }
+        
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(145deg, #2a2a2a, #1e1e1e);
+            color: #e0e0e0;
+            border: 1px solid #333;
+            border-radius: 5px;
+            box-shadow: 
+                0 3px 10px rgba(0, 0, 0, 0.5),
+                inset 0 0 5px rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button:hover {
+            color: #4db8ff;
+            border-color: rgba(0, 150, 255, 0.3);
+            box-shadow: 
+                0 3px 10px rgba(0, 150, 255, 0.3),
+                inset 0 0 5px rgba(0, 150, 255, 0.1);
+        }
+        
+        button::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 150, 255, 0.3), transparent);
+            transition: left 0.3s;
+        }
+        
+        button:hover::before {
+            left: 100%;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .stat-box {
+            padding: 10px;
+            background: rgba(0, 30, 60, 0.3);
+            border-radius: 5px;
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            box-shadow: inset 0 0 10px rgba(0, 150, 255, 0.2);
+        }
+        
+        .feedback {
+            margin: 25px 0;
+            padding: 15px;
+            background: rgba(0, 30, 60, 0.3);
+            border-radius: 5px;
+            font-size: 18px;
+            min-height: 27px;
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            box-shadow: inset 0 0 10px rgba(0, 150, 255, 0.2);
+            position: relative;
+        }
+        
+        .feedback::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 150, 255, 0.5), transparent);
+        }
+        
+        .dog-container {
+            margin: 25px auto;
+            width: 220px;
+            height: 220px;
+            position: relative;
+            background: linear-gradient(145deg, #2a2a2a, #1e1e1e);
+            border-radius: 5px;
+            box-shadow: 
+                0 3px 10px rgba(0, 0, 0, 0.5),
+                inset 0 0 5px rgba(255, 255, 255, 0.1);
+            border: 1px solid #333;
+            padding: 10px;
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #f5f5dc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="metal-border top"></div>
+        <div class="metal-border bottom"></div>
+        <div class="metal-border left"></div>
+        <div class="metal-border right"></div>
+        
+        <h1>金属风格俯卧撑检测系统</h1>
+        
+        <div class="instructions">
+            <h3>使用说明：</h3>
+            <ol>
+                <li>点击"开始检测"按钮允许摄像头访问</li>
+                <li>确保全身在摄像头画面中可见</li>
+                <li>保持标准俯卧撑姿势：身体成一条直线</li>
+                <li>下压时肘部弯曲小于90度，上升时伸直</li>
+                <li>系统会实时反馈您的动作质量</li>
+            </ol>
+        </div>
+        
+        <div class="video-container">
+            <video id="output" autoplay playsinline></video>
+        </div>
+        
+        <div class="button-group">
+            <button id="startButton">开始检测</button>
+            <button id="resetButton">重置计数</button>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">计数<br><span id="count">0</span></div>
+            <div class="stat-box">肘部角度<br><span id="angle">0</span>°</div>
+            <div class="stat-box">状态<br><span id="status">等待开始</span></div>
+        </div>
+        
+        <div class="feedback" id="feedback"></div>
+        
+        <div class="dog-container">
+            <canvas id="dogCanvas" width="200" height="200"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        let pushUpCount = 0;
+        let isDownPosition = false;
+        let lastUpTime = Date.now();
+        let feedbackMessage = "";
+        let feedbackTime = 0;
+        let lastActivityTime = Date.now();
+        let inactivityMessageShown = false;
+        let dogState = "normal"; // normal/happy/warning/sad
+        let frameCount = 0;
+        let lastUpdate = Date.now();
+        let voiceLock = false;
+        let lastAngle = 0; // 记录上一次的肘部角度
+        let angleStableTime = 0; // 记录角度开始稳定的时间
+
+        // 语音合成
+        const synth = window.speechSynthesis;
+        let voice = null;
+
+        // 获取DOM元素
+        const videoElement = document.getElementById('output');
+        const startButton = document.getElementById('startButton');
+        const resetButton = document.getElementById('resetButton');
+        const countElement = document.getElementById('count');
+        const angleElement = document.getElementById('angle');
+        const statusElement = document.getElementById('status');
+        const feedbackElement = document.getElementById('feedback');
+        const dogCanvas = document.getElementById('dogCanvas');
+        const dogCtx = dogCanvas.getContext('2d');
+
+        // 初始化MediaPipe Pose
+        const pose = new Pose({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+            }
+        });
+
+        pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        pose.onResults(onResults);
+
+        // 摄像头设置
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await pose.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+
+        // 开始按钮点击事件
+        startButton.addEventListener('click', () => {
+            camera.start();
+            startButton.disabled = true;
+            startButton.textContent = "检测中...";
+            lastActivityTime = Date.now();
+            safeSpeak("系统启动，俯卧撑检测已开始，请保持标准姿势");
+        });
+
+        // 重置按钮点击事件
+        resetButton.addEventListener('click', () => {
+            pushUpCount = 0;
+            countElement.textContent = pushUpCount;
+            feedbackMessage = "计数已重置";
+            feedbackTime = Date.now();
+            updateFeedback();
+            safeSpeak("计数已重置");
+        });
+
+        // 加载语音
+        function loadVoice() {
+            const voices = synth.getVoices();
+            // 尝试找到中文语音
+            voice = voices.find(v => v.lang.includes('zh')) || voices[0];
+        }
+
+        // 安全的语音播报（防止重叠）
+        function safeSpeak(text) {
+            if (voiceLock || !synth) return;
+
+            voiceLock = true;
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            if (voice) utterance.voice = voice;
+            utterance.rate = 0.9;  // 比正常稍慢
+
+            // 语音结束后解锁
+            utterance.onend = function() {
+                voiceLock = false;
+            };
+
+            synth.speak(utterance);
+        }
+
+        // 计算角度
+        function calculateAngle(a, b, c) {
+            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            return angle > 180.0 ? 360 - angle : angle;
+        }
+
+        // 检查身体是否直线
+        function checkAlignment(landmarks) {
+            try {
+                const leftShoulder = landmarks[11];
+                const rightShoulder = landmarks[12];
+                const leftHip = landmarks[23];
+                const rightHip = landmarks[24];
+                const leftAnkle = landmarks[27];
+                const rightAnkle = landmarks[28];
+
+                const shoulderCenter = {
+                    x: (leftShoulder.x + rightShoulder.x) / 2,
+                    y: (leftShoulder.y + rightShoulder.y) / 2
+                };
+
+                const hipCenter = {
+                    x: (leftHip.x + rightHip.x) / 2,
+                    y: (leftHip.y + rightHip.y) / 2
+                };
+
+                const ankleCenter = {
+                    x: (leftAnkle.x + rightAnkle.x) / 2,
+                    y: (leftAnkle.y + rightAnkle.y) / 2
+                };
+
+                const bodyAngle = calculateAngle(shoulderCenter, hipCenter, ankleCenter);
+                return Math.abs(bodyAngle - 180) < 10;
+            } catch {
+                return false;
+            }
+        }
+
+        // 处理姿势检测结果
+        function onResults(results) {
+            if (!results.poseLandmarks) {
+                statusElement.textContent = "未检测到人体";
+                return;
+            }
+
+            // 获取关键点
+            const landmarks = results.poseLandmarks;
+
+            try {
+                // 计算肘部角度
+                const leftShoulder = landmarks[11];
+                const rightShoulder = landmarks[12];
+                const leftElbow = landmarks[13];
+                const rightElbow = landmarks[14];
+                const leftWrist = landmarks[15];
+                const rightWrist = landmarks[16];
+
+                const leftAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
+                const rightAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
+                const avgAngle = (leftAngle + rightAngle) / 2;
+
+                angleElement.textContent = Math.round(avgAngle);
+
+                //
